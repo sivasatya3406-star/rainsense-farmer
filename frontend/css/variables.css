@@ -1,0 +1,62 @@
+/* RainSense Farmer - CSS Design Tokens and Variables */
+:root {
+  /* Brand Palette - Agriculture & Weather Inspired */
+  --color-primary: #1b4d3e;          /* Deep rich forest green */
+  --color-primary-dark: #0f3026;
+  --color-primary-light: #2d6a4f;
+  --color-primary-subtle: #e8f5e9;
+
+  --color-accent-green: #10b981;     /* Vibrant healthy leaf green */
+  --color-accent-rain: #0284c7;      /* Vivid rain blue */
+  --color-accent-sky: #38bdf8;       /* Clear sky blue */
+  --color-accent-soil: #d97706;      /* Rich loam amber */
+  --color-accent-amber: #f59e0b;
+
+  /* Weather Status Colors */
+  --status-no-rain: #10b981;        /* Green */
+  --status-light-rain: #eab308;     /* Yellow */
+  --status-moderate-rain: #f97316;  /* Orange */
+  --status-heavy-rain: #ef4444;     /* Red */
+
+  /* Neutral Surface & Text */
+  --bg-app: #f4f7f5;
+  --bg-surface: #ffffff;
+  --bg-surface-elevated: #ffffff;
+  --bg-surface-translucent: rgba(255, 255, 255, 0.88);
+  --bg-dark: #0f172a;
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --text-inverse: #ffffff;
+
+  --border-color: #e2e8f0;
+  --border-color-subtle: #edf2f7;
+  --border-focus: #10b981;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+  /* Typography */
+  --font-sans: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Map Dimensions */
+  --map-height-desktop: 580px;
+  --map-height-mobile: 360px;
+}

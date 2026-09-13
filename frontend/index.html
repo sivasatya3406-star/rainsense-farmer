@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RainSense Farmer — Know Where It Rains. Know Your Soil.</title>
+  <meta name="description" content="AI-powered rain intelligence and soil moisture platform for farmers in India. Real-time 15 km monitoring, live rainfall, and agricultural decision support.">
+  
+  <!-- Production API Base URL Configuration (Configured automatically or manually via Vercel env) -->
+  <meta name="api-base-url" content="">
+  <meta name="next-public-api-url" content="">
+  <meta name="vite-api-url" content="">
+  
+  <!-- Google Fonts: Outfit & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet CSS (Local Vendor with CDN Fallback) -->
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css" onerror="this.onerror=null;this.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';" />
+  
+  <!-- App Stylesheets -->
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/map.css">
+  <link rel="stylesheet" href="css/responsive.css">
+</head>
+<body>
+
+  <!-- Top Sticky Navigation Bar -->
+  <header class="app-header">
+    <div class="container nav-wrapper">
+      <a href="#dashboard" class="brand">
+        <div class="brand-icon">🌧</div>
+        <div class="brand-text">
+          <h1 data-i18n="app_title">RainSense Farmer</h1>
+          <span class="tagline" data-i18n="tagline">Know Where It Rains. Know Your Soil.</span>
+        </div>
+      </a>
+
+      <!-- Navigation Links -->
+      <nav class="main-nav" aria-label="Main Navigation">
+        <a href="#dashboard" class="nav-link active" data-target="dashboard-section" data-i18n="nav_dashboard">Dashboard</a>
+        <a href="#map" class="nav-link" data-target="map-anchor" data-i18n="nav_map">Rain Map</a>
+        <a href="#my-locations" class="nav-link" data-target="locations-section" data-i18n="nav_locations">My Locations</a>
+        <a href="#rain-history" class="nav-link" data-target="history-section" data-i18n="nav_history">Rain History</a>
+        <a href="#soil-moisture" class="nav-link" data-target="soil-section" data-i18n="nav_soil">Soil Moisture</a>
+        <a href="#ai-insights" class="nav-link" data-target="insights-section" data-i18n="nav_insights">AI Insights</a>
+        <a href="#about" class="nav-link" data-target="about-section" data-i18n="nav_about">About & Data</a>
+      </nav>
+
+      <!-- Right Controls: Demo Toggle, Language Selector, Notifications -->
+      <div class="nav-actions">
+        <!-- Demo Mode Toggle -->
+        <div class="demo-toggle-wrap" title="Toggle Demo Mode with Guntur Farm sample scenario">
+          <label for="demo-mode-checkbox" data-i18n="demo_mode">Demo Mode</label>
+          <label class="switch">
+            <input type="checkbox" id="demo-mode-checkbox">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <!-- Language Selector -->
+        <select id="language-select" class="lang-select" aria-label="Select Language">
+          <option value="en">English</option>
+          <option value="te">తెలుగు (Telugu)</option>
+          <option value="hi">हिंदी (Hindi)</option>
+        </select>
+
+        <!-- Notification Bell -->
+        <button id="notification-btn" class="notification-btn" aria-label="Notifications" onclick="document.getElementById('alerts-modal').classList.add('active')">
+          🔔
+          <span class="badge-dot"></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Demo Mode Banner (Visible only in demo mode) -->
+  <div id="demo-mode-banner" style="display: none; background: #fef3c7; border-bottom: 2px solid #f59e0b; padding: 0.6rem 1rem; text-align: center; font-size: 0.85rem; font-weight: 700; color: #b45309; justify-content: center; align-items: center; gap: 0.5rem;">
+    <span>⚡ DEMO MODE ACTIVE: Showing Guntur, Andhra Pradesh sample farm scenario (Section 54).</span>
+    <button class="btn btn-sm btn-outline" style="background:#fff; padding: 0.2rem 0.6rem;" onclick="window.demoManager.setDemoMode(false)">Exit Demo</button>
+  </div>
+
+  <!-- Stale Data Warning Banner -->
+  <div id="stale-warning-banner" style="display: none; background: #fff1f2; border-bottom: 2px solid #f43f5e; padding: 0.5rem 1rem; text-align: center; font-size: 0.82rem; font-weight: 600; color: #9f1239;">
+  </div>
+
+  <!-- Hero & Location Search Section -->
+  <section class="hero-banner" id="dashboard-section">
+    <div class="container hero-content">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+        <div>
+          <h2 class="hero-headline" data-i18n="hero_headline">Know where the rain is.</h2>
+          <p class="hero-subheading" data-i18n="hero_subheading">
+            Monitor rainfall, nearby rain activity, and soil moisture for your farming locations.
+          </p>
+        </div>
+
+        <!-- Refresh indicator -->
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span id="global-refresh-spinner" style="display: none; font-size: 0.85rem; color: var(--color-primary); font-weight: 600;">🔄 Updating live data...</span>
+          <button class="btn btn-outline btn-sm" onclick="window.app.refreshAllData()">
+            🔄 Refresh
+          </button>
+        </div>
+      </div>
+
+      <!-- Large Location Search Bar -->
+      <div class="search-container">
+        <div class="search-bar">
+          <span style="font-size: 1.1rem; color: var(--text-muted); margin-right: 0.5rem;">🔍</span>
+          <input 
+            type="text" 
+            id="location-search-input" 
+            class="search-input" 
+            placeholder="Search village, town, district in India..." 
+            data-i18n-placeholder="search_placeholder"
+            autocomplete="off"
+          />
+          <button id="location-search-btn" class="search-btn">
+            <span>Search</span>
+          </button>
+        </div>
+        <!-- Autocomplete Dropdown -->
+        <div id="search-dropdown-menu" class="search-dropdown"></div>
+      </div>
+
+      <!-- Quick Action Pills -->
+      <div class="quick-buttons">
+        <button class="pill-btn active" onclick="document.getElementById('map-anchor').scrollIntoView({behavior:'smooth'})">
+          🗺 <span data-i18n="btn_use_map">Use Map</span>
+        </button>
+        <button class="pill-btn" onclick="document.getElementById('locations-section').scrollIntoView({behavior:'smooth'})">
+          🌾 <span data-i18n="btn_my_locations">My Locations</span>
+        </button>
+        <button class="pill-btn" onclick="window.demoManager.setDemoMode(true)">
+          ⭐ <span data-i18n="btn_try_demo">Try Demo: Guntur Farm</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Workspace: Interactive Map & Telemetry Dashboard -->
+  <main class="container" style="flex: 1; padding-bottom: 3rem;">
+    <div id="map-anchor"></div>
+
+    <div class="dashboard-grid">
+      
+      <!-- Left Column: Map Card -->
+      <div class="map-column">
+        <div class="map-card-wrapper">
+          <!-- Selected Location Header on Map -->
+          <div style="padding: 0.85rem 1.25rem; background: #fff; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+              <div style="font-size: 0.72rem; font-weight: 700; color: var(--color-primary); text-transform: uppercase;" data-i18n="selected_farm">Selected Location</div>
+              <h3 id="selected-farm-name" style="font-size: 1.25rem; font-weight: 800; color: var(--color-primary-dark); line-height: 1.2;">Guntur Farm</h3>
+              <span id="selected-farm-coords" style="font-size: 0.78rem; color: var(--text-muted);">16.3067° N, 80.4365° E</span>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <button class="btn btn-outline btn-sm" onclick="window.locationsManager.openSaveModal()" title="Save this location to My Locations">
+                🌾 Save Location
+              </button>
+            </div>
+          </div>
+
+          <!-- Leaflet Map Canvas -->
+          <div id="leaflet-map"></div>
+
+          <!-- Floating Map Layer Controls -->
+          <div class="map-floating-controls">
+            <div class="map-layer-panel">
+              <span style="font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Map Layers</span>
+              <button class="layer-toggle-btn active" id="toggle-rain-layer-btn" onclick="this.classList.toggle('active'); window.rainSenseMap.toggleRainLayer(this.classList.contains('active'))">
+                🌧 Rain Layer
+              </button>
+              <button class="layer-toggle-btn active" id="toggle-15km-zone-btn" onclick="this.classList.toggle('active'); window.rainSenseMap.toggle15kmZone(this.classList.contains('active'))">
+                ⭕ 15 km Zone
+              </button>
+            </div>
+            <button class="map-action-btn" title="My Current GPS Location" onclick="window.rainSenseMap.locateUser()">
+              🎯
+            </button>
+          </div>
+
+          <!-- 15 km Legend Bar -->
+          <div class="map-legend-bar">
+            <div>
+              <div class="legend-section-title">Rainfall Intensity (mm/hr)</div>
+              <div class="legend-gradient-wrap">
+                <div class="gradient-bar"></div>
+              </div>
+              <div class="gradient-labels">
+                <span>0 mm</span>
+                <span>Light</span>
+                <span>Mod</span>
+                <span>Heavy</span>
+              </div>
+            </div>
+            <div style="border-left: 1px solid var(--border-color); padding-left: 1rem;">
+              <div class="legend-section-title">Zone</div>
+              <span style="font-size: 0.75rem; font-weight: 700; color: #0284c7;">⭕ 15 km Monitoring Radius</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI Farming Advisory Card (Directly beneath map for high visibility) -->
+        <div id="insights-section">
+          <div class="card" style="border: 2px solid #bbf7d0;">
+            <div class="card-header">
+              <div class="card-title">
+                <span>🌾</span> <span data-i18n="card_ai_insight">AI Farming Advisory</span>
+              </div>
+              <span class="badge-source badge-ai" data-i18n="badge_ai">AI PREDICTION</span>
+            </div>
+            <div id="ai-insights-container">
+              <!-- Rendered dynamically by insights.js -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Telemetry & Monitoring Cards -->
+      <div class="telemetry-column">
+
+        <!-- 1. The Core Differentiator: 15 KM Rain Monitoring Zone Card -->
+        <div class="card" style="border-top: 4px solid var(--color-accent-rain);">
+          <div class="card-header">
+            <div class="card-title">
+              <span>🌧</span> <span data-i18n="card_nearby_rain">15 km Rain Monitoring</span>
+            </div>
+            <span class="badge-source badge-live" data-i18n="badge_live">LIVE / OBSERVED</span>
+          </div>
+
+          <!-- Primary Nearby Rain Banner -->
+          <div id="nearby-rain-summary">
+            <!-- Rendered dynamically -->
+          </div>
+
+          <!-- Key Metrics Grid -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-top: 0.85rem;">
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--border-color-subtle);">
+              <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="nearest_rain">Nearest Rain</span>
+              <div id="nearest-rain-distance" style="font-size: 1.35rem; font-weight: 800; color: #0284c7;">--</div>
+              <span id="nearest-rain-direction" style="font-size: 0.78rem; color: var(--text-secondary); font-weight: 600;">--</span>
+            </div>
+
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--border-color-subtle);">
+              <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase;" data-i18n="rain_coverage">Rain Coverage</span>
+              <div id="rain-zone-coverage" style="font-size: 1.35rem; font-weight: 800; color: var(--color-primary-dark);">--</div>
+              <span style="font-size: 0.78rem; color: var(--text-muted);">inside 15 km circle</span>
+            </div>
+          </div>
+
+          <!-- Movement Vector -->
+          <div style="margin-top: 0.75rem; background: #f0fdf4; padding: 0.6rem 0.85rem; border-radius: var(--radius-md); border: 1px solid #bbf7d0; display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-size: 1.1rem;">🧭</span>
+            <div>
+              <span style="font-size: 0.7rem; font-weight: 700; color: #166534; text-transform: uppercase;" data-i18n="rain_movement">Rain Movement Direction</span>
+              <p id="rain-movement-desc" style="font-size: 0.84rem; font-weight: 600; color: #14532d;">Rain activity may be moving toward your selected area.</p>
+            </div>
+          </div>
+
+          <!-- Active Rain Cells Inside 15 km -->
+          <div style="margin-top: 0.85rem;">
+            <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Active Rain Cells in 15 km Radius:</span>
+            <div id="active-rain-cells-list" style="margin-top: 0.4rem; max-height: 140px; overflow-y: auto;">
+              <!-- Dynamic items -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Current Rain & Rainfall Received Card -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <span>🌦</span> <span data-i18n="card_current_rain">Current Rain Condition</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.4rem;">
+              <span class="badge-source badge-live" data-i18n="badge_live">LIVE / OBSERVED</span>
+              <span class="live-timestamp-badge" style="font-size: 0.7rem; color: var(--text-muted);">Just now</span>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.85rem;">
+            <div>
+              <div id="current-rain-status-pill" class="rain-status-pill status-no-rain">
+                🟢 No Rain
+              </div>
+              <div style="margin-top: 0.4rem;">
+                <span id="current-rain-rate" class="metric-val">0.0</span>
+                <span class="metric-unit">mm/hr</span>
+              </div>
+            </div>
+
+            <div style="text-align: right; font-size: 0.85rem; color: var(--text-secondary);">
+              <div>🌡 <strong id="current-temperature">28°C</strong></div>
+              <div>💧 <strong id="current-humidity">65%</strong> humidity</div>
+              <div>💨 <strong id="current-wind">12 km/h</strong> wind</div>
+            </div>
+          </div>
+
+          <!-- Accumulation Timeline: 1h, 3h, 6h, 24h, 72h -->
+          <div style="border-top: 1px solid var(--border-color-subtle); padding-top: 0.75rem;">
+            <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;" data-i18n="card_recent_rain">Rainfall Received</span>
+            <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.4rem; margin-top: 0.4rem; text-align: center;">
+              <div style="background: #f8fafc; padding: 0.4rem 0.2rem; border-radius: 6px;">
+                <div style="font-size: 0.68rem; color: var(--text-muted);">1h</div>
+                <div id="rain-acc-1h" style="font-size: 0.85rem; font-weight: 700;">0.0 mm</div>
+              </div>
+              <div style="background: #f8fafc; padding: 0.4rem 0.2rem; border-radius: 6px;">
+                <div style="font-size: 0.68rem; color: var(--text-muted);">3h</div>
+                <div id="rain-acc-3h" style="font-size: 0.85rem; font-weight: 700;">0.0 mm</div>
+              </div>
+              <div style="background: #f8fafc; padding: 0.4rem 0.2rem; border-radius: 6px;">
+                <div style="font-size: 0.68rem; color: var(--text-muted);">6h</div>
+                <div id="rain-acc-6h" style="font-size: 0.85rem; font-weight: 700;">0.0 mm</div>
+              </div>
+              <div style="background: #e0f2fe; padding: 0.4rem 0.2rem; border-radius: 6px; border: 1px solid #bae6fd;">
+                <div style="font-size: 0.68rem; color: #0369a1; font-weight: 700;">24h</div>
+                <div id="rain-acc-24h" style="font-size: 0.85rem; font-weight: 800; color: #0284c7;">0.0 mm</div>
+              </div>
+              <div style="background: #f8fafc; padding: 0.4rem 0.2rem; border-radius: 6px;">
+                <div style="font-size: 0.68rem; color: var(--text-muted);">72h</div>
+                <div id="rain-acc-72h" style="font-size: 0.85rem; font-weight: 700;">0.0 mm</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Soil Moisture Card -->
+        <div id="soil-section" class="card" style="border-top: 4px solid var(--color-accent-soil);">
+          <div class="card-header">
+            <div class="card-title">
+              <span>💧</span> <span data-i18n="card_soil_moisture">Soil Moisture Intelligence</span>
+            </div>
+            <span class="badge-source badge-live" data-i18n="badge_live">OBSERVED</span>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <span id="soil-status-pill" style="font-size: 0.85rem; font-weight: 700; background: #dcfce7; color: #166534; padding: 0.3rem 0.7rem; border-radius: var(--radius-full);">
+                Moderate
+              </span>
+              <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.35rem;" data-i18n="estimated_soil_label">
+                Estimated soil moisture (Hydrology model)
+              </div>
+            </div>
+
+            <div style="text-align: right;">
+              <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;" data-i18n="waterlogging_risk">Waterlogging Risk</span>
+              <div id="soil-waterlog-risk" style="font-size: 1.1rem; font-weight: 800; color: #166534;">Low</div>
+            </div>
+          </div>
+
+          <!-- Progress Bar -->
+          <div style="width: 100%; height: 10px; background: #e2e8f0; border-radius: 5px; margin: 0.85rem 0; overflow: hidden;">
+            <div id="soil-moisture-bar" style="width: 50%; height: 100%; background: linear-gradient(to right, #d97706, #10b981); transition: width 0.5s ease;"></div>
+          </div>
+
+          <!-- Surface vs Root Zone Percentages -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <div style="background: #fffbeb; padding: 0.65rem; border-radius: var(--radius-md); border: 1px solid #fef3c7;">
+              <span style="font-size: 0.75rem; color: #92400e; font-weight: 600;" data-i18n="surface_moisture">Surface Soil Moisture</span>
+              <div id="soil-moisture-surface" style="font-size: 1.4rem; font-weight: 800; color: #b45309;">48%</div>
+              <span style="font-size: 0.7rem; color: var(--text-muted);">0 - 3 cm layer</span>
+            </div>
+
+            <div style="background: #f0fdf4; padding: 0.65rem; border-radius: var(--radius-md); border: 1px solid #dcfce7;">
+              <span style="font-size: 0.75rem; color: #166534; font-weight: 600;" data-i18n="root_moisture">Root Zone Moisture</span>
+              <div id="soil-moisture-root" style="font-size: 1.4rem; font-weight: 800; color: #15803d;">54%</div>
+              <span style="font-size: 0.7rem; color: var(--text-muted);">3 - 9 cm layer</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Short-Term Rainfall Forecast Section -->
+    <section class="card" style="margin-top: 1.5rem;">
+      <div class="card-header">
+        <div class="card-title">
+          <span>🌦</span> <span data-i18n="card_forecast">Rainfall Forecast (Next Hours)</span>
+        </div>
+        <span class="badge-source badge-forecast" data-i18n="badge_forecast">FORECAST</span>
+      </div>
+      <div id="hourly-forecast-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 0.6rem;">
+        <!-- Filled by app.js -->
+      </div>
+    </section>
+
+    <!-- 5 Saved Locations Section -->
+    <section id="locations-section" style="margin-top: 2rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div>
+          <h2 style="font-size: 1.35rem; font-weight: 800; color: var(--color-primary-dark);" data-i18n="nav_locations">My Locations</h2>
+          <span id="saved-locations-counter" style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);">
+            0 / 5 locations saved
+          </span>
+        </div>
+
+        <div style="display: flex; gap: 0.5rem;">
+          <button class="btn btn-outline btn-sm" onclick="window.locationsManager.loadComparison()">
+            📊 <span data-i18n="btn_compare">Compare Locations</span>
+          </button>
+          <button class="btn btn-primary btn-sm" onclick="window.locationsManager.openSaveModal()">
+            ➕ <span data-i18n="btn_save_location">Save Current Location</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 5 Cards Container -->
+      <div id="saved-locations-grid" class="grid grid-cols-3 gap-4">
+        <!-- Rendered by locations.js -->
+      </div>
+
+      <!-- Location Comparison Drawer -->
+      <div id="comparison-content" style="margin-top: 1.25rem;"></div>
+    </section>
+
+    <!-- Rainfall History & Soil Moisture Charts -->
+    <section id="history-section" style="margin-top: 2rem;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+        
+        <!-- Rain History Chart Card -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <span>📊</span> <span data-i18n="nav_history">Rainfall History</span>
+            </div>
+            <span class="badge-source badge-live" data-i18n="badge_live">OBSERVED</span>
+          </div>
+          <div style="height: 280px; position: relative;">
+            <canvas id="rain-history-chart"></canvas>
+          </div>
+        </div>
+
+        <!-- Soil Moisture Trends Chart Card -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <span>📈</span> <span data-i18n="nav_soil">Soil Moisture Trends</span>
+            </div>
+            <span class="badge-source badge-live" data-i18n="badge_live">OBSERVED</span>
+          </div>
+          <div style="height: 280px; position: relative;">
+            <canvas id="soil-moisture-chart"></canvas>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- About & Data Limitations Section -->
+    <section id="about-section" class="card" style="margin-top: 2rem; background: #ffffff;">
+      <div class="card-header">
+        <div class="card-title">
+          <span>ℹ️</span> <span data-i18n="nav_about">About RainSense Farmer & Data Sources</span>
+        </div>
+        <span class="badge-source badge-demo" style="background:#e0f2fe; color:#0369a1; border-color:#bae6fd;">TRANSPARENCY</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6;">
+        <div>
+          <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--color-primary-dark); margin-bottom: 0.35rem;">🌐 Data Sources & Architecture</h4>
+          <p>
+            RainSense Farmer integrates high-resolution meteorological models from <strong>Open-Meteo</strong>, satellite precipitation estimation (GPM/IMERG compatible), and volumetric soil moisture models (ERA5-Land 0–9 cm depth).
+          </p>
+        </div>
+
+        <div>
+          <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--color-primary-dark); margin-bottom: 0.35rem;">🤖 Machine Learning Engine</h4>
+          <p>
+            Trained on multi-season Indian agro-climatic datasets using <strong>Random Forest</strong> (Rain Occurrence Classification) and <strong>Gradient Boosting</strong> (Rainfall Regression) with strictly backward-looking lag features to eliminate data leakage.
+          </p>
+        </div>
+
+        <div>
+          <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--color-primary-dark); margin-bottom: 0.35rem;">⚠️ Field Advisory & Limitations</h4>
+          <p>
+            Satellite rainfall is an estimate. Soil moisture is modeled. Weather conditions can evolve rapidly. This platform is designed as agricultural decision support and should always be paired with physical ground observation.
+          </p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Save Location Modal -->
+  <div id="save-location-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3 style="font-size: 1.15rem; font-weight: 800; color: var(--color-primary-dark);">🌾 Save Farming Location</h3>
+        <button onclick="window.locationsManager.closeSaveModal()" style="font-size: 1.2rem; color: var(--text-muted);">✖</button>
+      </div>
+      <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 1rem;">
+        Save up to 5 locations (e.g. My Farm, Village Field, Lease Land) for one-click monitoring.
+      </p>
+
+      <div class="form-group">
+        <label class="form-label">Farm Name *</label>
+        <input type="text" id="modal-loc-name" class="form-input" placeholder="e.g. East Field (Cotton)" />
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+        <div class="form-group">
+          <label class="form-label">Latitude</label>
+          <input type="number" step="0.0001" id="modal-loc-lat" class="form-input" readonly style="background: #f1f5f9;" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Longitude</label>
+          <input type="number" step="0.0001" id="modal-loc-lon" class="form-input" readonly style="background: #f1f5f9;" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">District / State</label>
+        <input type="text" id="modal-loc-district" class="form-input" placeholder="e.g. Guntur, Andhra Pradesh" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Current Crop (Optional)</label>
+        <input type="text" id="modal-loc-crop" class="form-input" placeholder="e.g. Chilli, Cotton, Paddy, Maize" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Notes (Optional)</label>
+        <textarea id="modal-loc-notes" class="form-input" rows="2" placeholder="e.g. Black soil, prone to waterlogging in canal zone"></textarea>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.25rem;">
+        <button class="btn btn-outline" onclick="window.locationsManager.closeSaveModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="window.locationsManager.submitSaveLocation()">Save Farm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alerts / Notifications Modal -->
+  <div id="alerts-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3 style="font-size: 1.15rem; font-weight: 800; color: var(--color-primary-dark);">🔔 Farm Weather Notifications</h3>
+        <button onclick="document.getElementById('alerts-modal').classList.remove('active')" style="font-size: 1.2rem; color: var(--text-muted);">✖</button>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 0.6rem; max-height: 280px; overflow-y: auto;">
+        <div style="background: #f0fdf4; border-left: 4px solid #16a34a; padding: 0.65rem 0.85rem; border-radius: 6px; font-size: 0.85rem;">
+          <div style="font-weight: 700; color: #166534;">🌱 Rain Monitoring Active</div>
+          <p style="color: #14532d; font-size: 0.8rem; margin-top: 0.2rem;">
+            Real-time 15 km rain monitoring is enabled for your fields.
+          </p>
+        </div>
+        <div style="background: #fef3c7; border-left: 4px solid #d97706; padding: 0.65rem 0.85rem; border-radius: 6px; font-size: 0.85rem;">
+          <div style="font-weight: 700; color: #b45309;">🌧 Nearby Rain Alerts</div>
+          <p style="color: #78350f; font-size: 0.8rem; margin-top: 0.2rem;">
+            You will receive instant advisories when rain cells form within 15 km of saved locations.
+          </p>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; margin-top: 1.25rem;">
+        <button class="btn btn-outline btn-sm" onclick="window.api.markAlertsRead(); document.getElementById('alerts-modal').classList.remove('active')">
+          Mark All Read
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer style="background: var(--bg-surface); border-top: 1px solid var(--border-color); padding: 1.5rem 0; text-align: center; font-size: 0.85rem; color: var(--text-muted);">
+    <div class="container">
+      <p style="font-weight: 600; color: var(--color-primary-dark);">
+        🌧 RainSense Farmer — “Know Where It Rains. Know Your Soil. Make Better Farming Decisions.”
+      </p>
+      <p style="font-size: 0.75rem; margin-top: 0.35rem;">
+        Built specifically for Indian farmers. Live 15 km spatial radar • Soil moisture intelligence • Machine learning prediction.
+      </p>
+    </div>
+  </footer>
+
+  <!-- Toast Container -->
+  <div class="toast-container"></div>
+
+  <!-- External Libraries (Local Vendor with CDN Fallback) -->
+  <script src="vendor/leaflet/leaflet.js" onerror="this.onerror=null;this.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';"></script>
+  <script src="vendor/chartjs/chart.umd.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';"></script>
+
+  <!-- App Scripts (Relative paths compatible with Vercel, static servers, and FastAPI) -->
+  <script src="js/i18n.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/locations.js"></script>
+  <script src="js/insights.js"></script>
+  <script src="js/demo.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>

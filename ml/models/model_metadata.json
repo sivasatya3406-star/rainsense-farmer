@@ -1,0 +1,109 @@
+{
+  "version": "v1.0.0",
+  "trained_date": "2026-09-11",
+  "training_samples": 9600,
+  "test_samples": 2400,
+  "features": [
+    "rainfall_1h",
+    "rainfall_3h",
+    "rainfall_6h",
+    "rainfall_12h",
+    "rainfall_24h",
+    "rainfall_72h",
+    "temperature",
+    "humidity",
+    "pressure",
+    "wind_speed",
+    "soil_moisture_surface",
+    "soil_moisture_root",
+    "latitude",
+    "longitude",
+    "month",
+    "hour",
+    "day_of_year"
+  ],
+  "classification_algorithm": "RandomForestClassifier",
+  "classification_metrics": {
+    "accuracy": 0.9321,
+    "precision": 0.1574,
+    "recall": 0.191,
+    "f1_score": 0.1726,
+    "roc_auc": 0.6833
+  },
+  "regression_algorithm": "GradientBoostingRegressor",
+  "regression_metrics": {
+    "mae": 0.4216,
+    "rmse": 1.4216,
+    "r2_score": -0.0212
+  },
+  "feature_importances": [
+    {
+      "feature": "humidity",
+      "importance": 0.2156
+    },
+    {
+      "feature": "pressure",
+      "importance": 0.1497
+    },
+    {
+      "feature": "temperature",
+      "importance": 0.0836
+    },
+    {
+      "feature": "soil_moisture_surface",
+      "importance": 0.0682
+    },
+    {
+      "feature": "soil_moisture_root",
+      "importance": 0.0665
+    },
+    {
+      "feature": "hour",
+      "importance": 0.0616
+    },
+    {
+      "feature": "day_of_year",
+      "importance": 0.0598
+    },
+    {
+      "feature": "rainfall_72h",
+      "importance": 0.0593
+    },
+    {
+      "feature": "wind_speed",
+      "importance": 0.0552
+    },
+    {
+      "feature": "rainfall_24h",
+      "importance": 0.0484
+    },
+    {
+      "feature": "rainfall_12h",
+      "importance": 0.0399
+    },
+    {
+      "feature": "longitude",
+      "importance": 0.0212
+    },
+    {
+      "feature": "rainfall_6h",
+      "importance": 0.0196
+    },
+    {
+      "feature": "latitude",
+      "importance": 0.0183
+    },
+    {
+      "feature": "rainfall_3h",
+      "importance": 0.0159
+    },
+    {
+      "feature": "month",
+      "importance": 0.0098
+    },
+    {
+      "feature": "rainfall_1h",
+      "importance": 0.0074
+    }
+  ]
+}

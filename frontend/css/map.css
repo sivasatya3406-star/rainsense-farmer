@@ -1,0 +1,212 @@
+/* RainSense Farmer - Interactive Map Styles */
+
+.map-card-wrapper {
+  background: var(--bg-surface);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  position: relative;
+}
+
+#leaflet-map {
+  width: 100%;
+  height: var(--map-height-desktop);
+  background-color: #e2e8f0;
+  z-index: 1;
+}
+
+/* Floating Map Controls Overlay */
+.map-floating-controls {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.map-layer-panel {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  padding: 0.6rem 0.85rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.layer-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 0.3rem 0.5rem;
+  border-radius: var(--radius-sm);
+  background: #f1f5f9;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.layer-toggle-btn.active {
+  background-color: var(--color-primary);
+  color: #fff;
+}
+
+/* Map Action Buttons */
+.map-action-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  background: #fff;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.map-action-btn:hover {
+  background-color: var(--color-primary-subtle);
+  color: var(--color-primary);
+}
+
+/* 15 km Radius Legend & Banner */
+.map-legend-bar {
+  position: absolute;
+  bottom: 1.25rem;
+  left: 1.25rem;
+  z-index: 500;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(10px);
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.legend-section-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 0.2rem;
+}
+
+.legend-gradient-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.gradient-bar {
+  width: 140px;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(to right, #10b981 0%, #eab308 30%, #f97316 65%, #ef4444 100%);
+}
+
+.gradient-labels {
+  display: flex;
+  justify-content: space-between;
+  width: 140px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* Farm Marker Pulsing Animation */
+.farmer-marker-pin {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  background: var(--color-primary);
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 14px;
+}
+
+.farmer-marker-pulse {
+  position: absolute;
+  width: 54px;
+  height: 54px;
+  top: -13px;
+  left: -13px;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.35);
+  animation: pulseZone 2s infinite ease-out;
+  pointer-events: none;
+}
+
+@keyframes pulseZone {
+  0% { transform: scale(0.6); opacity: 0.9; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+/* Rain Radar Cell Marker */
+.radar-cell-pin {
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 10px;
+  box-shadow: 0 0 8px rgba(0,0,0,0.3);
+  transition: transform var(--transition-fast);
+}
+.radar-cell-pin:hover {
+  transform: scale(1.2);
+}
+
+/* Leaflet Popup Customization */
+.leaflet-popup-content-wrapper {
+  border-radius: var(--radius-lg);
+  padding: 0;
+  overflow: hidden;
+  box-shadow: var(--shadow-xl);
+}
+.leaflet-popup-content {
+  margin: 0;
+  line-height: 1.4;
+}
+.popup-farm-header {
+  background: var(--color-primary);
+  color: #fff;
+  padding: 0.65rem 1rem;
+}
+.popup-farm-header h4 {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+.popup-farm-body {
+  padding: 0.85rem 1rem;
+}
+.popup-stat-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.35rem;
+  font-size: 0.85rem;
+}
+.popup-stat-label {
+  color: var(--text-muted);
+}
+.popup-stat-val {
+  font-weight: 700;
+  color: var(--text-primary);
+}

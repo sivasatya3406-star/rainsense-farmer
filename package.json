@@ -1,0 +1,20 @@
+{
+  "name": "rainsense-farmer",
+  "version": "1.0.0",
+  "description": "RainSense Farmer — AI-powered rain intelligence and soil moisture platform for Indian farmers",
+  "scripts": {
+    "build": "echo 'RainSense Farmer static frontend ready'",
+    "start": "python run.py"
+  },
+  "keywords": [
+    "agriculture",
+    "farmer",
+    "weather",
+    "rainfall",
+    "soil-moisture",
+    "machine-learning",
+    "india"
+  ],
+  "author": "RainSense Team",
+  "license": "MIT"
+}
