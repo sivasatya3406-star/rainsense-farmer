@@ -1,12 +1,11 @@
 """API endpoint for AI-powered farming insights."""
 from fastapi import APIRouter, Query
-from backend.services.weather_provider import OpenMeteoProvider
+from backend.services.weather_provider import provider
 from backend.services.ai_advisory import generate_farming_advisory
 from backend.services.demo_service import get_demo_dashboard_data
 from backend.services.geospatial_service import analyze_15km_monitoring_zone
 
 router = APIRouter(prefix="/api", tags=["insights"])
-provider = OpenMeteoProvider()
 
 @router.get("/insights")
 def get_farming_insights(

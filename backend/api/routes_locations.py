@@ -10,10 +10,10 @@ from backend.database.db import (
     delete_saved_location,
     count_saved_locations
 )
-from backend.services.weather_provider import OpenMeteoProvider
+from backend.services.weather_provider import provider
 
 router = APIRouter(prefix="/api", tags=["locations"])
-provider = OpenMeteoProvider()
+
 
 # Popular Indian agricultural presets for instant search matching
 INDIAN_LOCATION_PRESETS = [

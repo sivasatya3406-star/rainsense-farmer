@@ -1,11 +1,10 @@
 """API endpoints for interactive map layers and 15 km monitoring zone analysis."""
 from fastapi import APIRouter, Query, HTTPException
-from backend.services.weather_provider import OpenMeteoProvider
+from backend.services.weather_provider import provider
 from backend.services.geospatial_service import analyze_15km_monitoring_zone
 from backend.services.demo_service import get_demo_dashboard_data
 
 router = APIRouter(prefix="/api", tags=["map"])
-provider = OpenMeteoProvider()
 
 @router.get("/rain-map")
 def get_rain_map_data(

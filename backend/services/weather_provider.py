@@ -370,3 +370,5 @@ class OpenMeteoProvider(WeatherProvider):
             })
             
         return spatial_points
+# Shared provider instance
+provider = OpenMeteoProvider(cache_ttl_seconds=600)

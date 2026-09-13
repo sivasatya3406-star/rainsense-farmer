@@ -1,11 +1,11 @@
 """API endpoints for weather, rainfall accumulation, soil moisture, and forecast."""
 from fastapi import APIRouter, Query, HTTPException
 from typing import Optional
-from backend.services.weather_provider import OpenMeteoProvider
+from backend.services.weather_provider import provider
 from backend.services.demo_service import get_demo_dashboard_data
 
 router = APIRouter(prefix="/api", tags=["weather"])
-provider = OpenMeteoProvider()
+
 
 @router.get("/weather")
 def get_live_weather(
