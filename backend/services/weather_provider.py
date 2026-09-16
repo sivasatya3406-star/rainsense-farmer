@@ -1,11 +1,17 @@
-"""Weather provider abstraction and Open-Meteo implementation for RainSense Farmer."""
+"""Weather provider abstraction, Open-Meteo implementation, and WeatherAPI fallback for RainSense Farmer."""
 
+import logging
 import requests
 import time
 import threading
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
+
+from backend.config import CACHE_TTL_SECONDS, WEATHERAPI_KEY
+from backend.services.weatherapi_provider import WeatherAPIProvider
+
+logger = logging.getLogger(__name__)
 
 
 class WeatherProvider(ABC):
@@ -883,9 +889,148 @@ class OpenMeteoProvider(WeatherProvider):
         return spatial_points
 
 
-# IMPORTANT:
-# Use ONE shared provider instance across the application.
-# This allows all routes to share the same cache.
-provider = OpenMeteoProvider(
-    cache_ttl_seconds=600
+class FallbackWeatherProvider(WeatherProvider):
+    """Fallback weather orchestrator.
+
+    Tries Open-Meteo as the primary provider.
+    If Open-Meteo fails (HTTP 429, timeout, connection failure, upstream error),
+    seamlessly falls back to WeatherAPI when configured.
+
+    Guarantees:
+    - Soil moisture remains strictly Open-Meteo (WeatherAPI does not offer soil moisture).
+    - Transparent attribution: responses carry 'Open-Meteo' or 'WeatherAPI'.
+    - No fake values: historical accumulation fields that cannot be fetched from WeatherAPI
+      are returned as None/null.
+    - If both fail, raises a clear RuntimeError (converted to HTTP 503 by routes).
+    """
+
+    def __init__(
+        self,
+        primary: OpenMeteoProvider,
+        fallback: WeatherAPIProvider
+    ):
+        self.primary = primary
+        self.fallback = fallback
+
+    def get_live_conditions(self, lat: float, lon: float) -> Dict[str, Any]:
+        try:
+            return self.primary.get_live_conditions(lat, lon)
+        except Exception as primary_err:
+            if self.fallback.is_configured():
+                logger.warning(
+                    "Open-Meteo live conditions unavailable (%s). Falling back to WeatherAPI.",
+                    str(primary_err)
+                )
+                try:
+                    return self.fallback.get_current(lat, lon)
+                except Exception as fallback_err:
+                    logger.error("WeatherAPI live fallback failed: %s", str(fallback_err))
+                    raise RuntimeError(
+                        f"Weather services unavailable. Primary: {str(primary_err)}; Fallback: {str(fallback_err)}"
+                    ) from fallback_err
+            raise
+
+    def get_forecast(self, lat: float, lon: float) -> Dict[str, Any]:
+        try:
+            return self.primary.get_forecast(lat, lon)
+        except Exception as primary_err:
+            if self.fallback.is_configured():
+                logger.warning(
+                    "Open-Meteo forecast unavailable (%s). Falling back to WeatherAPI.",
+                    str(primary_err)
+                )
+                try:
+                    return self.fallback.get_forecast(lat, lon)
+                except Exception as fallback_err:
+                    logger.error("WeatherAPI forecast fallback failed: %s", str(fallback_err))
+                    raise RuntimeError(
+                        f"Forecast services unavailable. Primary: {str(primary_err)}; Fallback: {str(fallback_err)}"
+                    ) from fallback_err
+            raise
+
+    def get_rain_history(self, lat: float, lon: float) -> Dict[str, Any]:
+        try:
+            return self.primary.get_rain_history(lat, lon)
+        except Exception as primary_err:
+            if self.fallback.is_configured():
+                logger.warning(
+                    "Open-Meteo rainfall history unavailable (%s). Falling back to WeatherAPI.",
+                    str(primary_err)
+                )
+                try:
+                    return self.fallback.get_rain_history(lat, lon)
+                except Exception as fallback_err:
+                    logger.error("WeatherAPI rainfall fallback failed: %s", str(fallback_err))
+                    raise RuntimeError(
+                        f"Rainfall history unavailable. Primary: {str(primary_err)}; Fallback: {str(fallback_err)}"
+                    ) from fallback_err
+            raise
+
+    def get_soil_moisture(self, lat: float, lon: float) -> Dict[str, Any]:
+        # Strictly Open-Meteo only. Do not fallback to WeatherAPI for soil moisture.
+        return self.primary.get_soil_moisture(lat, lon)
+
+    def get_spatial_rain_points(
+        self,
+        lat: float,
+        lon: float,
+        radius_km: float = 15.0
+    ) -> List[Dict[str, Any]]:
+        from backend.services.geospatial_service import destination_point
+        import random
+
+        live = self.get_live_conditions(lat, lon)
+        base_rate = live.get("precipitation_rate_mm_hr", 0.0)
+
+        bearings = [
+            0, 45, 90, 135,
+            180, 225, 270, 315,
+            30, 120, 210, 300
+        ]
+
+        distances = [
+            4.2, 7.8, 12.4,
+            5.5, 9.6, 14.1,
+            6.3, 11.2, 3.5,
+            8.9, 13.7, 10.1
+        ]
+
+        hour_seed = int(time.time() // 900)
+        rnd = random.Random(int(lat * 1000 + lon * 1000) + hour_seed)
+
+        spatial_points = []
+        for i, (b, d) in enumerate(zip(bearings, distances)):
+            d = min(d, radius_km)
+            p_lat, p_lon = destination_point(lat, lon, d, b)
+
+            if base_rate > 0.05:
+                variation = rnd.uniform(0.4, 1.8)
+                rate = round(base_rate * variation, 2)
+            else:
+                hum = live.get("humidity_pct", 65.0)
+                if hum > 78.0 and rnd.random() < 0.30:
+                    rate = round(rnd.uniform(0.4, 4.2), 2)
+                else:
+                    rate = 0.0
+
+            spatial_points.append({
+                "id": f"cell_{i + 1}",
+                "name": f"Rain Cell {i + 1}",
+                "latitude": p_lat,
+                "longitude": p_lon,
+                "rainfall_rate_mm": rate,
+                "source": f"{live.get('source', 'Precipitation Estimate')} / Spatial Estimate"
+            })
+
+        return spatial_points
+
+
+# IMPORTANT: Shared provider instances
+open_meteo_provider = OpenMeteoProvider(cache_ttl_seconds=CACHE_TTL_SECONDS)
+weather_api_provider = WeatherAPIProvider(api_key=WEATHERAPI_KEY, cache_ttl_seconds=CACHE_TTL_SECONDS)
+
+# Main shared provider instance across the application
+provider = FallbackWeatherProvider(
+    primary=open_meteo_provider,
+    fallback=weather_api_provider
 )

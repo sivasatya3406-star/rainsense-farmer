@@ -22,7 +22,8 @@ DB_PATH = Path(os.getenv("DB_PATH", str(BASE_DIR / "rainsense.db")))
 # API Configuration (Documented / configurable)
 # Open-Meteo does not require an API key for normal non-commercial usage.
 # Optional keys for higher quota or custom providers:
-WEATHER_API_KEY = os.getenv("WEATHER_API_KEY", "")
+WEATHERAPI_KEY = os.getenv("WEATHERAPI_KEY", "") or os.getenv("WEATHER_API_KEY", "")
+WEATHER_API_KEY = WEATHERAPI_KEY
 RAINFALL_API_KEY = os.getenv("RAINFALL_API_KEY", "")
 SOIL_API_KEY = os.getenv("SOIL_API_KEY", "")
 MAP_API_KEY = os.getenv("MAP_API_KEY", "")

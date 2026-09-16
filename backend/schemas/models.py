@@ -70,12 +70,12 @@ class SoilMoistureData(BaseModel):
 
 class RainfallHistoryAccumulation(BaseModel):
     current_rate_mm_hr: float
-    last_1h_mm: float
-    last_3h_mm: float
-    last_6h_mm: float
-    last_24h_mm: float
-    last_72h_mm: float
-    rain_probability_pct: int
+    last_1h_mm: Optional[float] = None
+    last_3h_mm: Optional[float] = None
+    last_6h_mm: Optional[float] = None
+    last_24h_mm: Optional[float] = None
+    last_72h_mm: Optional[float] = None
+    rain_probability_pct: Optional[int] = None
     data_quality: str = "GOOD"
     source_label: str = "Open-Meteo / Satellite Estimate"
     update_time: str
