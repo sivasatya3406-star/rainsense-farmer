@@ -165,8 +165,8 @@ class RainSenseApp {
     }
 
     try {
-      // Parallel fetch of telemetry
-      const [liveWeather, rainHistory, soilMoisture, forecast, nearbyAnalysis, rainMap, insights] = await Promise.all([
+      // Parallel fetch of telemetry with resilient per-endpoint handling
+      const results = await Promise.allSettled([
         window.api.getLiveWeather(lat, lon, isDemo),
         window.api.getRainfallHistory(lat, lon, isDemo),
         window.api.getSoilMoisture(lat, lon, isDemo),
@@ -176,38 +176,58 @@ class RainSenseApp {
         window.api.getAIInsights(lat, lon, "Crops", isDemo)
       ]);
 
+      const liveWeather = results[0].status === "fulfilled" ? results[0].value : null;
+      const rainHistory = results[1].status === "fulfilled" ? results[1].value : null;
+      const soilMoisture = results[2].status === "fulfilled" ? results[2].value : null;
+      const forecast = results[3].status === "fulfilled" ? results[3].value : null;
+      const nearbyAnalysis = results[4].status === "fulfilled" ? results[4].value : null;
+      const rainMap = results[5].status === "fulfilled" ? results[5].value : null;
+      const insights = results[6].status === "fulfilled" ? results[6].value : null;
+
       // 1. Render Rain Cells on Map
       if (rainMap && rainMap.precipitation_cells) {
         window.rainSenseMap.renderRainCells(rainMap.precipitation_cells);
+      } else if (nearbyAnalysis && nearbyAnalysis.zones_detected) {
+        window.rainSenseMap.renderRainCells(nearbyAnalysis.zones_detected);
       }
 
       // 2. Update Current Rain Card
-      this.renderCurrentRainCard(liveWeather, rainHistory, nearbyAnalysis);
+      if (liveWeather || nearbyAnalysis) {
+        this.renderCurrentRainCard(liveWeather, rainHistory, nearbyAnalysis);
+      }
 
       // 3. Update 15 km Monitoring Card
-      this.render15kmMonitoringCard(nearbyAnalysis);
+      if (nearbyAnalysis) {
+        this.render15kmMonitoringCard(nearbyAnalysis);
+      }
 
       // 4. Update Soil Moisture Card
-      this.renderSoilMoistureCard(soilMoisture);
+      if (soilMoisture) {
+        this.renderSoilMoistureCard(soilMoisture);
+      }
 
       // 5. Update Forecast Section
-      this.renderForecastSection(forecast);
+      if (forecast) {
+        this.renderForecastSection(forecast);
+      }
 
       // 6. Update AI Advisory
-      window.insightsRenderer.renderAdvisory("ai-insights-container", insights);
+      if (insights) {
+        window.insightsRenderer.renderAdvisory("ai-insights-container", insights);
+      }
 
       // 7. Update Charts
-      if (rainHistory.hourly_history_24h) {
+      if (rainHistory && rainHistory.hourly_history_24h) {
         window.rainCharts.renderRainHistoryChart("rain-history-chart", rainHistory.hourly_history_24h, rainHistory.daily_history);
       }
-      if (soilMoisture.trend_series) {
+      if (soilMoisture && soilMoisture.trend_series) {
         window.rainCharts.renderSoilMoistureChart("soil-moisture-chart", soilMoisture.trend_series);
       }
 
       // Staleness warning check
       const staleBanner = document.getElementById("stale-warning-banner");
       if (staleBanner) {
-        if (liveWeather._is_stale) {
+        if (liveWeather && liveWeather._is_stale) {
           staleBanner.style.display = "block";
           staleBanner.textContent = "⚠️ " + liveWeather._stale_warning;
         } else {
@@ -217,7 +237,9 @@ class RainSenseApp {
 
       // Update timestamp badges
       document.querySelectorAll(".live-timestamp-badge").forEach(el => {
-        el.textContent = liveWeather.timestamp ? new Date(liveWeather.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now";
+        el.textContent = (liveWeather && liveWeather.timestamp)
+          ? new Date(liveWeather.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          : "Just now";
       });
 
     } catch (err) {
@@ -228,25 +250,54 @@ class RainSenseApp {
     }
   }
 
-  renderCurrentRainCard(live, history, nearby) {
-    const rate = live.precipitation_rate_mm_hr || 0;
-    const isRaining = rate > 0.05;
+  renderCurrentRainCard(live = {}, history = {}, nearby = null) {
+    // Farm rain condition must use authoritative fields from nearby-rain if available:
+    // is_raining_at_farm, farm_rain_rate_mm, farm_rain_status
+    let rate = 0;
+    let isRaining = false;
+    let farmStatus = null;
+
+    if (nearby && (nearby.farm_rain_rate_mm !== undefined || nearby.farm_rain_status !== undefined || nearby.is_raining_at_farm !== undefined)) {
+      rate = Number(nearby.farm_rain_rate_mm !== undefined && nearby.farm_rain_rate_mm !== null ? nearby.farm_rain_rate_mm : (live ? live.precipitation_rate_mm_hr || 0 : 0));
+      isRaining = nearby.is_raining_at_farm !== undefined ? Boolean(nearby.is_raining_at_farm) : rate > 0.05;
+      farmStatus = nearby.farm_rain_status || null;
+    } else if (live) {
+      rate = Number(live.precipitation_rate_mm_hr || 0);
+      isRaining = rate > 0.05;
+    }
 
     // Status Pill
     const pill = document.getElementById("current-rain-status-pill");
     if (pill) {
-      if (rate >= 10.0) {
-        pill.className = "rain-status-pill status-heavy-rain";
-        pill.innerHTML = "🔴 Heavy Rain";
-      } else if (rate >= 2.5) {
-        pill.className = "rain-status-pill status-moderate-rain";
-        pill.innerHTML = "🟠 Moderate Rain";
-      } else if (rate > 0.05) {
-        pill.className = "rain-status-pill status-light-rain";
-        pill.innerHTML = "🟡 Light Rain";
+      if (farmStatus) {
+        const lower = farmStatus.toLowerCase();
+        if (lower.includes("heavy") || rate >= 10.0) {
+          pill.className = "rain-status-pill status-heavy-rain";
+          pill.innerHTML = `🔴 ${farmStatus}`;
+        } else if (lower.includes("moderate") || rate >= 2.5) {
+          pill.className = "rain-status-pill status-moderate-rain";
+          pill.innerHTML = `🟠 ${farmStatus}`;
+        } else if (isRaining || rate > 0.05 || lower.includes("light") || lower.includes("rain") || lower.includes("drizzle")) {
+          pill.className = "rain-status-pill status-light-rain";
+          pill.innerHTML = `🟡 ${farmStatus}`;
+        } else {
+          pill.className = "rain-status-pill status-no-rain";
+          pill.innerHTML = `🟢 ${farmStatus}`;
+        }
       } else {
-        pill.className = "rain-status-pill status-no-rain";
-        pill.innerHTML = "🟢 No Rain";
+        if (rate >= 10.0) {
+          pill.className = "rain-status-pill status-heavy-rain";
+          pill.innerHTML = "🔴 Heavy Rain";
+        } else if (rate >= 2.5) {
+          pill.className = "rain-status-pill status-moderate-rain";
+          pill.innerHTML = "🟠 Moderate Rain";
+        } else if (rate > 0.05) {
+          pill.className = "rain-status-pill status-light-rain";
+          pill.innerHTML = "🟡 Light Rain";
+        } else {
+          pill.className = "rain-status-pill status-no-rain";
+          pill.innerHTML = "🟢 No Rain";
+        }
       }
     }
 
@@ -255,46 +306,104 @@ class RainSenseApp {
     if (rateEl) rateEl.textContent = rate.toFixed(1);
 
     // Accumulation stats
+    const hist = history || {};
     const setVal = (id, val) => {
       const el = document.getElementById(id);
       if (el) el.textContent = (val || 0).toFixed(1) + " mm";
     };
-    setVal("rain-acc-1h", history.last_1h_mm);
-    setVal("rain-acc-3h", history.last_3h_mm);
-    setVal("rain-acc-6h", history.last_6h_mm);
-    setVal("rain-acc-24h", history.last_24h_mm);
-    setVal("rain-acc-72h", history.last_72h_mm);
+    setVal("rain-acc-1h", hist.last_1h_mm);
+    setVal("rain-acc-3h", hist.last_3h_mm);
+    setVal("rain-acc-6h", hist.last_6h_mm);
+    setVal("rain-acc-24h", hist.last_24h_mm);
+    setVal("rain-acc-72h", hist.last_72h_mm);
 
     // Weather params
+    const l = live || {};
     const tempEl = document.getElementById("current-temperature");
-    if (tempEl) tempEl.textContent = Math.round(live.temperature_c || 28) + "°C";
+    if (tempEl) tempEl.textContent = Math.round(l.temperature_c || 28) + "°C";
 
     const humEl = document.getElementById("current-humidity");
-    if (humEl) humEl.textContent = Math.round(live.humidity_pct || 65) + "%";
+    if (humEl) humEl.textContent = Math.round(l.humidity_pct || 65) + "%";
 
     const windEl = document.getElementById("current-wind");
-    if (windEl) windEl.textContent = Math.round(live.wind_speed_kmh || 10) + " km/h";
+    if (windEl) windEl.textContent = Math.round(l.wind_speed_kmh || 10) + " km/h";
   }
 
   render15kmMonitoringCard(analysis) {
+    if (!analysis) return;
+
     const nearbySummaryEl = document.getElementById("nearby-rain-summary");
     const distEl = document.getElementById("nearest-rain-distance");
     const dirEl = document.getElementById("nearest-rain-direction");
     const covEl = document.getElementById("rain-zone-coverage");
     const movEl = document.getElementById("rain-movement-desc");
+    const confEl = document.getElementById("rain-movement-confidence");
+    const countEl = document.getElementById("active-rain-cells-count");
     const zonesListEl = document.getElementById("active-rain-cells-list");
 
-    if (distEl) distEl.textContent = analysis.nearest_rain_distance_km ? `${analysis.nearest_rain_distance_km} km` : "No rain in 15 km";
-    if (dirEl) dirEl.textContent = analysis.nearest_rain_direction ? `${analysis.nearest_rain_direction} (${analysis.nearest_rain_intensity || 'Active'})` : "None";
-    if (covEl) covEl.textContent = `${analysis.rain_coverage_pct}% of 15 km zone`;
-    if (movEl) movEl.textContent = analysis.rain_movement;
+    // 1. Nearest Rain Activity Distance
+    if (distEl) {
+      if (analysis.nearest_rain_distance_km !== null && analysis.nearest_rain_distance_km !== undefined) {
+        distEl.textContent = `${analysis.nearest_rain_distance_km} km`;
+      } else if (analysis.rain_nearby === false) {
+        distEl.textContent = "No rain in 15 km";
+      } else {
+        distEl.textContent = "--";
+      }
+    }
 
-    // Summary banner
+    // 2. Nearest Rain Direction & Intensity
+    if (dirEl) {
+      if (analysis.nearest_rain_direction) {
+        const intensity = analysis.nearest_rain_intensity || "Active";
+        dirEl.textContent = `${analysis.nearest_rain_direction} (${intensity})`;
+      } else if (analysis.rain_nearby === false) {
+        dirEl.textContent = "None";
+      } else {
+        dirEl.textContent = "--";
+      }
+    }
+
+    // 3. Rain Coverage (15 km Zone)
+    if (covEl) {
+      if (analysis.rain_coverage_pct !== null && analysis.rain_coverage_pct !== undefined) {
+        const covPct = Number(analysis.rain_coverage_pct);
+        covEl.textContent = `${Number.isInteger(covPct) ? covPct : covPct.toFixed(1)}% of 15 km zone`;
+      } else {
+        covEl.textContent = "--";
+      }
+    }
+
+    // 4. Rain Movement Direction & Confidence
+    if (movEl) {
+      movEl.textContent = analysis.rain_movement || "Rain activity may be moving toward your selected area.";
+    }
+    if (confEl && analysis.rain_movement_confidence !== null && analysis.rain_movement_confidence !== undefined) {
+      const confVal = Number(analysis.rain_movement_confidence);
+      const confPct = Math.round(confVal <= 1.0 ? confVal * 100 : confVal);
+      confEl.textContent = `(${confPct}% confidence)`;
+    } else if (confEl) {
+      confEl.textContent = "";
+    }
+
+    // 5. Active Rain Cells in 15 km Radius Count
+    const zones = analysis.zones_detected || [];
+    if (countEl) {
+      countEl.textContent = zones.length;
+    }
+
+    // 6. Primary Nearby Rain Banner
     if (nearbySummaryEl) {
-      if (analysis.nearest_rain_distance_km) {
+      if (analysis.nearest_rain_distance_km !== null && analysis.nearest_rain_distance_km !== undefined) {
         nearbySummaryEl.innerHTML = `
           <div style="background: #fff7ed; border-left: 4px solid #ea580c; padding: 0.65rem 0.85rem; border-radius: var(--radius-sm); font-size: 0.88rem; color: #9a3412; font-weight: 600;">
             🌧 Rain detected <strong>${analysis.nearest_rain_distance_km} km ${analysis.nearest_rain_direction || ''}</strong> from your selected location.
+          </div>
+        `;
+      } else if (analysis.is_raining_at_farm) {
+        nearbySummaryEl.innerHTML = `
+          <div style="background: #eff6ff; border-left: 4px solid #0284c7; padding: 0.65rem 0.85rem; border-radius: var(--radius-sm); font-size: 0.88rem; color: #075985; font-weight: 600;">
+            🌧 Rain currently occurring directly at your farm location (${analysis.farm_rain_rate_mm || 0} mm/hr).
           </div>
         `;
       } else {
@@ -306,21 +415,20 @@ class RainSenseApp {
       }
     }
 
-    // Active rain zones list
+    // 7. Active Rain Zones List
     if (zonesListEl) {
-      const zones = analysis.zones_detected || [];
       if (zones.length === 0) {
         zonesListEl.innerHTML = `<p style="font-size: 0.8rem; color: var(--text-muted);">No rain cells active within 15 km radius.</p>`;
       } else {
         zonesListEl.innerHTML = zones.map(z => `
           <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.45rem 0; border-bottom: 1px solid var(--border-color-subtle); font-size: 0.82rem;">
             <div>
-              <span style="font-weight: 700; color: var(--text-primary);">${z.name}</span>
+              <span style="font-weight: 700; color: var(--text-primary);">${z.name || ('Rain Cell ' + (z.zone_id || ''))}</span>
               <span style="color: var(--text-muted); margin-left: 0.35rem;">(${z.distance_km} km ${z.direction})</span>
             </div>
             <div style="text-align: right;">
-              <span style="font-weight: 700; color: ${z.rainfall_rate_mm >= 4.0 ? '#ea580c' : '#16a34a'};">${z.rainfall_rate_mm} mm/hr</span>
-              <span style="font-size: 0.72rem; color: var(--text-muted); display: block;">${z.intensity}</span>
+              <span style="font-weight: 700; color: ${z.rainfall_rate_mm >= 4.0 ? '#ea580c' : '#16a34a'};">${Number(z.rainfall_rate_mm || 0).toFixed(1)} mm/hr</span>
+              <span style="font-size: 0.72rem; color: var(--text-muted); display: block;">${z.intensity || 'Rain'}</span>
             </div>
           </div>
         `).join('');

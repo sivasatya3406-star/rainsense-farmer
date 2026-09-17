@@ -259,13 +259,19 @@
             <span style="font-size: 1.1rem;">🧭</span>
             <div>
               <span style="font-size: 0.7rem; font-weight: 700; color: #166534; text-transform: uppercase;" data-i18n="rain_movement">Rain Movement Direction</span>
-              <p id="rain-movement-desc" style="font-size: 0.84rem; font-weight: 600; color: #14532d;">Rain activity may be moving toward your selected area.</p>
+              <p style="font-size: 0.84rem; font-weight: 600; color: #14532d; margin: 0;">
+                <span id="rain-movement-desc">Rain activity may be moving toward your selected area.</span>
+                <span id="rain-movement-confidence" style="font-size: 0.75rem; font-weight: 700; color: #15803d; margin-left: 0.25rem;"></span>
+              </p>
             </div>
           </div>
 
           <!-- Active Rain Cells Inside 15 km -->
           <div style="margin-top: 0.85rem;">
-            <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Active Rain Cells in 15 km Radius:</span>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Active Rain Cells in 15 km Radius:</span>
+              <span id="active-rain-cells-count" style="font-size: 0.82rem; font-weight: 800; color: #0284c7; background: #e0f2fe; padding: 0.1rem 0.5rem; border-radius: 9999px;">--</span>
+            </div>
             <div id="active-rain-cells-list" style="margin-top: 0.4rem; max-height: 140px; overflow-y: auto;">
               <!-- Dynamic items -->
             </div>

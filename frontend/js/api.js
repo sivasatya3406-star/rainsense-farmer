@@ -42,6 +42,10 @@ function getApiBaseUrl() {
     } catch (e) {
       // Ignore storage errors on restricted webviews
     }
+
+    if (window.location && window.location.protocol === "file:") {
+      return "https://rainsense-farmer-backend.onrender.com";
+    }
   }
   return ""; // Relative path ensures automatic HTTPS/HTTP, port, and host matching
 }
